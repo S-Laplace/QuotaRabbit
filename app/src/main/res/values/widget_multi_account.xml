@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_multi_config_description">Select up to %1$d accounts. Resize the widget to show more accounts.</string>
+    <string name="widget_multi_config_default_fields">Each account shows its provider’s available quota fields. Select one account to choose individual fields.</string>
+    <string name="widget_multi_config_provider_fields">Provider quota fields</string>
+    <string name="widget_multi_more">+%1$d more · Resize</string>
+    <string name="widget_multi_more_compact">+%1$d</string>
+    <string name="widget_multi_identity">%1$s · %2$s</string>
+    <string name="widget_multi_missing_account">Account unavailable</string>
+    <string name="widget_multi_refreshed">Updated %1$s</string>
+    <string name="widget_multi_percent_remaining">%1$d%% remaining</string>
+    <string name="widget_multi_count_used">%1$d / %2$d used</string>
+    <string name="widget_multi_count_used_without_limit">%1$d used</string>
+    <string name="widget_multi_field_value">%1$s: %2$s</string>
+</resources>

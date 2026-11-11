@@ -1,0 +1,476 @@
+package com.alice.quotarabbit.providers.codex
+
+import com.alice.quotarabbit.data.secure.ProviderSessionEnvelope
+import com.alice.quotarabbit.data.secure.SecureSessionStore
+import com.alice.quotarabbit.domain.model.LocalAccountId
+import com.alice.quotarabbit.domain.model.ProviderAccount
+import com.alice.quotarabbit.domain.model.ProviderAccountId
+import com.alice.quotarabbit.domain.model.ProviderId
+import com.alice.quotarabbit.domain.quota.QuotaSnapshotSource
+import com.alice.quotarabbit.domain.refresh.QuotaError
+import com.alice.quotarabbit.domain.refresh.RefreshTrigger
+import com.alice.quotarabbit.providers.codex.auth.CodexTokenRefresher
+import com.alice.quotarabbit.providers.codex.dto.CodexRateLimitDto
+import com.alice.quotarabbit.providers.codex.dto.CodexUsageResponseDto
+import com.alice.quotarabbit.providers.codex.dto.CodexWindowDto
+import com.alice.quotarabbit.providers.codex.network.CodexUsageClient
+import com.alice.quotarabbit.providers.codex.session.CodexSessionPayload
+import com.alice.quotarabbit.refresh.ProviderRefreshResult
+import java.time.Clock
+import java.time.Instant
+import java.time.ZoneOffset
+import java.util.Base64
+import com.alice.quotarabbit.providers.codex.network.CodexSubscriptionDates
+import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Test
+
+class CodexRefreshProviderTest {
+    private val now: Instant = Instant.parse("2026-05-23T12:00:00Z")
+    private val clock: Clock = Clock.fixed(now, ZoneOffset.UTC)
+
+    @Test
+    fun `refresh loads stored session refreshes token fetches usage and saves updated session`() = runTest {
+        val account = account()
+        val initialEnvelope = envelope(localAccountId = "local-1")
+        val store = RecordingSecureSessionStore(initialEnvelope)
+        val cipher = RecordingCodexSessionCipher(
+            decryptedSession = CodexSessionPayload(
+                accessToken = "old-access",
+                refreshToken = "old-refresh",
+                idToken = "old-id",
+                accountId = "acct-1",
+                lastRefresh = Instant.parse("2026-05-23T10:00:00Z"),
+            ),
+        )
+        val tokenRefresh = RecordingTokenRefresh(
+            CodexSessionPayload(
+                accessToken = "new-access",
+                refreshToken = "new-refresh",
+                idToken = "new-id",
+                accountId = "acct-1",
+                lastRefresh = now,
+            ),
+        )
+        val usageFetcher = RecordingUsageFetcher(successfulUsageDto())
+        val provider = provider(
+            store = store,
+            cipher = cipher,
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account, RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Success)
+        val snapshot = (result as ProviderRefreshResult.Success).snapshot
+        assertEquals(QuotaSnapshotSource.BackgroundRefresh, snapshot.source)
+        assertEquals(62, snapshot.windows.first().usedPercent)
+        assertEquals(listOf("old-refresh"), tokenRefresh.refreshTokens)
+        assertEquals(listOf("new-access" to "acct-1"), usageFetcher.requests)
+        assertEquals(listOf("new-refresh"), cipher.encryptedRefreshTokens)
+        assertEquals("local-1", store.savedEnvelopes.single().localAccountId)
+    }
+
+    @Test
+    fun `missing session returns auth required without calling network`() = runTest {
+        val tokenRefresh = RecordingTokenRefresh(
+            CodexSessionPayload(
+                accessToken = "unused",
+                refreshToken = "unused",
+                idToken = null,
+                accountId = null,
+                lastRefresh = now,
+            ),
+        )
+        val usageFetcher = RecordingUsageFetcher(successfulUsageDto())
+        val provider = provider(
+            store = RecordingSecureSessionStore(initialEnvelope = null),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = CodexSessionPayload(
+                    accessToken = "unused",
+                    refreshToken = "unused",
+                    idToken = null,
+                    accountId = null,
+                    lastRefresh = now,
+                ),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Failure)
+        assertEquals("error_auth_required", (result as ProviderRefreshResult.Failure).error.safeMessageKey)
+        assertTrue(tokenRefresh.refreshTokens.isEmpty())
+        assertTrue(usageFetcher.requests.isEmpty())
+    }
+
+    @Test
+    fun `session save failure returns structured retryable failure`() = runTest {
+        val provider = provider(
+            store = ThrowingSaveSecureSessionStore(envelope(localAccountId = "local-1")),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = CodexSessionPayload(
+                    accessToken = "old-access",
+                    refreshToken = "old-refresh",
+                    idToken = null,
+                    accountId = "acct-1",
+                    lastRefresh = now,
+                ),
+            ),
+            tokenRefresh = RecordingTokenRefresh(
+                CodexSessionPayload(
+                    accessToken = "new-access",
+                    refreshToken = "new-refresh",
+                    idToken = null,
+                    accountId = "acct-1",
+                    lastRefresh = now,
+                ),
+            ),
+            usageFetcher = RecordingUsageFetcher(successfulUsageDto()),
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Failure)
+        val failure = result as ProviderRefreshResult.Failure
+        assertEquals("error_network", failure.error.safeMessageKey)
+        assertEquals("codex_refresh_session_save_failed", failure.error.diagnosticsDigest)
+    }
+
+    @Test
+    fun `unexpired access token is reused without rotating the refresh token`() = runTest {
+        // Rotating the refresh token on every poll is what makes a Codex login look "expired": any
+        // rotation whose result is not persisted leaves the app holding a token the server retired.
+        val store = RecordingSecureSessionStore(envelope(localAccountId = "local-1"))
+        val tokenRefresh = RecordingTokenRefresh(refreshedSession())
+        val usageFetcher = RecordingUsageFetcher(successfulUsageDto())
+        val provider = provider(
+            store = store,
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = storedSession(
+                    tokenExpiresAtEpochSeconds = now.plusSeconds(1_800).epochSecond,
+                ),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Success)
+        assertTrue(tokenRefresh.refreshTokens.isEmpty())
+        assertEquals(listOf("old-access" to "acct-1"), usageFetcher.requests)
+        assertTrue(store.savedEnvelopes.isEmpty())
+    }
+
+    @Test
+    fun `access token inside the expiry skew is refreshed before fetching usage`() = runTest {
+        val tokenRefresh = RecordingTokenRefresh(refreshedSession())
+        val usageFetcher = RecordingUsageFetcher(successfulUsageDto())
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope(localAccountId = "local-1")),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = storedSession(
+                    tokenExpiresAtEpochSeconds = now.plusSeconds(30).epochSecond,
+                ),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Success)
+        assertEquals(listOf("old-refresh"), tokenRefresh.refreshTokens)
+        assertEquals(listOf("new-access" to "acct-1"), usageFetcher.requests)
+    }
+
+    @Test
+    fun `legacy session without a stored expiry still refreshes before fetching usage`() = runTest {
+        val tokenRefresh = RecordingTokenRefresh(refreshedSession())
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope(localAccountId = "local-1")),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = storedSession(tokenExpiresAtEpochSeconds = null),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = RecordingUsageFetcher(successfulUsageDto()),
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Success)
+        assertEquals(listOf("old-refresh"), tokenRefresh.refreshTokens)
+    }
+
+    @Test
+    fun `usage auth failure on an unexpired token refreshes once and retries`() = runTest {
+        val tokenRefresh = RecordingTokenRefresh(refreshedSession())
+        val usageFetcher = SequencedUsageFetcher(
+            listOf(
+                CodexUsageClient.Result.Failure(
+                    QuotaError.AuthRequired(httpStatus = 401, diagnosticsDigest = "codex_usage_auth_required_401"),
+                ),
+                CodexUsageClient.Result.Success(successfulUsageDto()),
+            ),
+        )
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope(localAccountId = "local-1")),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = storedSession(
+                    tokenExpiresAtEpochSeconds = now.plusSeconds(1_800).epochSecond,
+                ),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Success)
+        assertEquals(listOf("old-refresh"), tokenRefresh.refreshTokens)
+        assertEquals(listOf("old-access" to "acct-1", "new-access" to "acct-1"), usageFetcher.requests)
+    }
+
+    @Test
+    fun `usage auth failure after a just-refreshed token is not retried again`() = runTest {
+        val tokenRefresh = RecordingTokenRefresh(refreshedSession())
+        val usageFetcher = SequencedUsageFetcher(
+            listOf(
+                CodexUsageClient.Result.Failure(
+                    QuotaError.AuthRequired(httpStatus = 401, diagnosticsDigest = "codex_usage_auth_required_401"),
+                ),
+                CodexUsageClient.Result.Success(successfulUsageDto()),
+            ),
+        )
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope(localAccountId = "local-1")),
+            cipher = RecordingCodexSessionCipher(
+                decryptedSession = storedSession(tokenExpiresAtEpochSeconds = null),
+            ),
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+        )
+
+        val result = provider.refresh(account(), RefreshTrigger.Periodic)
+
+        assertTrue(result is ProviderRefreshResult.Failure)
+        assertEquals("error_auth_required", (result as ProviderRefreshResult.Failure).error.safeMessageKey)
+        assertEquals(listOf("old-refresh"), tokenRefresh.refreshTokens)
+        assertEquals(1, usageFetcher.requests.size)
+    }
+
+    @Test
+    fun `jwt coverage fallback is preserved separately from renewal on a successful refresh`() = runTest {
+        val jwt = syntheticJwt("acct-1", "2026-11-12T00:00:00Z")
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope("local-1")),
+            cipher = RecordingCodexSessionCipher(
+                storedSession(now.plusSeconds(3600).epochSecond).copy(accessToken = jwt, idToken = null),
+            ),
+            tokenRefresh = RecordingTokenRefresh(refreshedSession()),
+            usageFetcher = RecordingUsageFetcher(successfulUsageDto()),
+        )
+        val result = provider.refresh(account(), RefreshTrigger.Manual)
+        assertTrue(result is ProviderRefreshResult.Success)
+        val benefit = (result as ProviderRefreshResult.Success).snapshot.codexBenefits
+        assertEquals(null, benefit?.subscriptionRenewsAt)
+        assertEquals(Instant.parse("2026-11-12T00:00:00Z"), benefit?.subscriptionActiveUntil)
+        assertEquals(true, benefit?.activeUntilFromToken)
+    }
+
+    @Test
+    fun `entitlement expiry outranks jwt coverage and renewal stays explicit`() = runTest {
+        val jwt = syntheticJwt("acct-1", "2026-11-12T00:00:00Z")
+        val provider = provider(
+            store = RecordingSecureSessionStore(envelope("local-1")),
+            cipher = RecordingCodexSessionCipher(
+                storedSession(now.plusSeconds(3600).epochSecond).copy(accessToken = jwt, idToken = null),
+            ),
+            tokenRefresh = RecordingTokenRefresh(refreshedSession()),
+            usageFetcher = RecordingUsageFetcher(successfulUsageDto()),
+            renewalFetcher = CodexRenewalFetcher { _, _ ->
+                CodexSubscriptionDates(
+                    renewsAt = Instant.parse("2026-11-01T00:00:00Z"),
+                    activeUntil = Instant.parse("2026-11-14T00:00:00Z"),
+                )
+            },
+        )
+        val result = provider.refresh(account(), RefreshTrigger.Manual)
+        assertTrue(result is ProviderRefreshResult.Success)
+        val benefit = (result as ProviderRefreshResult.Success).snapshot.codexBenefits
+        assertEquals(Instant.parse("2026-11-01T00:00:00Z"), benefit?.subscriptionRenewsAt)
+        assertEquals(Instant.parse("2026-11-14T00:00:00Z"), benefit?.subscriptionActiveUntil)
+        assertEquals(false, benefit?.activeUntilFromToken)
+    }
+
+    private fun syntheticJwt(accountId: String, expires: String): String {
+        val encoder = Base64.getUrlEncoder().withoutPadding()
+        val header = encoder.encodeToString("{}".toByteArray())
+        val payload = encoder.encodeToString(
+            """{"https://api.openai.com/auth":{"chatgpt_account_id":"$accountId",
+            "chatgpt_subscription_active_until":"$expires"}}""".toByteArray(),
+        )
+        return "$header.$payload.signature"
+    }
+
+    private fun storedSession(tokenExpiresAtEpochSeconds: Long?): CodexSessionPayload =
+        CodexSessionPayload(
+            accessToken = "old-access",
+            refreshToken = "old-refresh",
+            idToken = "old-id",
+            accountId = "acct-1",
+            lastRefresh = Instant.parse("2026-05-23T10:00:00Z"),
+            tokenExpiresAtEpochSeconds = tokenExpiresAtEpochSeconds,
+        )
+
+    private fun refreshedSession(): CodexSessionPayload =
+        CodexSessionPayload(
+            accessToken = "new-access",
+            refreshToken = "new-refresh",
+            idToken = "new-id",
+            accountId = "acct-1",
+            lastRefresh = now,
+            tokenExpiresAtEpochSeconds = now.plusSeconds(3_600).epochSecond,
+        )
+
+    private class SequencedUsageFetcher(
+        results: List<CodexUsageClient.Result>,
+    ) : CodexUsageFetcher {
+        private val remaining = ArrayDeque(results)
+        val requests = mutableListOf<Pair<String, String?>>()
+
+        override suspend fun fetchUsage(accessToken: String, accountId: String?): CodexUsageClient.Result {
+            requests += accessToken to accountId
+            return remaining.removeFirst()
+        }
+    }
+
+    private fun provider(
+        store: SecureSessionStore,
+        cipher: CodexSessionCipher,
+        tokenRefresh: CodexTokenRefresh,
+        usageFetcher: CodexUsageFetcher,
+        renewalFetcher: CodexRenewalFetcher = CodexRenewalFetcher { _, _ -> null },
+    ): CodexRefreshProvider =
+        CodexRefreshProvider(
+            sessionStore = store,
+            sessionCipher = cipher,
+            tokenRefresh = tokenRefresh,
+            usageFetcher = usageFetcher,
+            renewalFetcher = renewalFetcher,
+            clock = clock,
+        )
+
+    private class RecordingSecureSessionStore(
+        initialEnvelope: ProviderSessionEnvelope?,
+    ) : SecureSessionStore {
+        private val envelope = initialEnvelope
+        val savedEnvelopes = mutableListOf<ProviderSessionEnvelope>()
+
+        override suspend fun save(envelope: ProviderSessionEnvelope) {
+            savedEnvelopes += envelope
+        }
+
+        override suspend fun load(providerId: String, localAccountId: String): ProviderSessionEnvelope? = envelope
+
+        override suspend fun delete(providerId: String, localAccountId: String) = Unit
+    }
+
+    private class RecordingCodexSessionCipher(
+        private val decryptedSession: CodexSessionPayload,
+    ) : CodexSessionCipher {
+        val encryptedRefreshTokens = mutableListOf<String>()
+
+        override fun decrypt(envelope: ProviderSessionEnvelope): Result<CodexSessionPayload> =
+            Result.success(decryptedSession)
+
+        override fun encrypt(
+            session: CodexSessionPayload,
+            envelope: ProviderSessionEnvelope,
+            updatedAt: Instant,
+        ): ProviderSessionEnvelope {
+            encryptedRefreshTokens += session.refreshToken
+            return envelope.copy(
+                payloadCiphertext = session.refreshToken.toByteArray(),
+                updatedAt = updatedAt.toString(),
+            )
+        }
+    }
+
+    private class ThrowingSaveSecureSessionStore(
+        private val envelope: ProviderSessionEnvelope,
+    ) : SecureSessionStore {
+        override suspend fun save(envelope: ProviderSessionEnvelope) {
+            throw IllegalStateException("disk unavailable")
+        }
+
+        override suspend fun load(providerId: String, localAccountId: String): ProviderSessionEnvelope = envelope
+
+        override suspend fun delete(providerId: String, localAccountId: String) = Unit
+    }
+
+    private class RecordingTokenRefresh(
+        private val refreshedSession: CodexSessionPayload,
+    ) : CodexTokenRefresh {
+        val refreshTokens = mutableListOf<String>()
+
+        override suspend fun refresh(session: CodexSessionPayload): CodexTokenRefresher.Result {
+            refreshTokens += session.refreshToken
+            return CodexTokenRefresher.Result.Success(refreshedSession)
+        }
+    }
+
+    private class RecordingUsageFetcher(
+        private val dto: CodexUsageResponseDto,
+    ) : CodexUsageFetcher {
+        val requests = mutableListOf<Pair<String, String?>>()
+
+        override suspend fun fetchUsage(accessToken: String, accountId: String?): CodexUsageClient.Result {
+            requests += accessToken to accountId
+            return CodexUsageClient.Result.Success(dto)
+        }
+    }
+
+    private fun account(): ProviderAccount =
+        ProviderAccount.createNew(
+            localAccountId = LocalAccountId("local-1"),
+            providerId = ProviderId("codex"),
+            providerAccountId = ProviderAccountId("acct-1"),
+            displayName = "Codex",
+            now = now,
+        )
+
+    private fun envelope(localAccountId: String): ProviderSessionEnvelope =
+        ProviderSessionEnvelope(
+            providerId = "codex",
+            localAccountId = localAccountId,
+            providerAccountId = "acct-1",
+            schemaVersion = 1,
+            payloadCiphertext = byteArrayOf(1, 2, 3),
+            payloadNonce = byteArrayOf(4, 5, 6),
+            createdAt = now.toString(),
+            updatedAt = now.toString(),
+        )
+
+    private fun successfulUsageDto(): CodexUsageResponseDto =
+        CodexUsageResponseDto(
+            planType = "plus",
+            rateLimit = CodexRateLimitDto(
+                primaryWindow = CodexWindowDto(
+                    usedPercent = 62,
+                    resetAt = 1_779_426_000,
+                    limitWindowSeconds = 18_000,
+                ),
+                secondaryWindow = CodexWindowDto(
+                    usedPercent = 41,
+                    resetAt = 1_779_480_000,
+                    limitWindowSeconds = 604_800,
+                ),
+            ),
+        )
+}

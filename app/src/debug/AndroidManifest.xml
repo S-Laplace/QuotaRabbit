@@ -1,0 +1,34 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name="com.alice.quotarabbit.ui.settings.SettingsPreviewActivity"
+            android:exported="false"
+            android:label="Settings Preview"
+            android:theme="@style/Theme.QuotaRabbit" />
+        <activity
+            android:name="com.alice.quotarabbit.ui.typography.DeviceCodeTypographyPreviewActivity"
+            android:exported="false"
+            android:label="Device Code Typography Preview"
+            android:theme="@style/Theme.QuotaRabbit" />
+        <activity
+            android:name="com.alice.quotarabbit.ui.typography.TypographyPreviewActivity"
+            android:exported="true"
+            android:label="Typography Preview"
+            android:theme="@style/Theme.QuotaRabbit" />
+        <activity
+            android:name="com.alice.quotarabbit.ui.home.HomePreviewActivity"
+            android:exported="true"
+            android:label="Home Preview"
+            android:theme="@style/Theme.QuotaRabbit" />
+        <activity
+            android:name="com.alice.quotarabbit.ui.spike.MotionPreviewActivity"
+            android:exported="true"
+            android:label="Motion Preview"
+            android:theme="@style/Theme.QuotaRabbit" />
+        <activity
+            android:name="com.alice.quotarabbit.widget.WidgetPreviewActivity"
+            android:exported="true"
+            android:label="Widget Preview"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+    </application>
+</manifest>

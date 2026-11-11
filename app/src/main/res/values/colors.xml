@@ -1,0 +1,8 @@
+<resources>
+    <color name="quotarabbit_primary">#17181C</color>
+    <color name="quotarabbit_surface">#FFFFFF</color>
+    <color name="quotarabbit_background">#F6F6F6</color>
+    <color name="quotarabbit_accent">#0071E3</color>
+    <color name="quotarabbit_background_dark">#181818</color>
+    <color name="ic_launcher_background">#F5F5F5</color>
+</resources>

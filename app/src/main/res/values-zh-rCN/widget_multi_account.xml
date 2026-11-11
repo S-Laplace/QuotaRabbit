@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_multi_config_description">最多选择 %1$d 个账号。调整微件大小可显示更多账号。</string>
+    <string name="widget_multi_config_default_fields">每个账号显示服务商实际提供的额度字段。仅选择一个账号时可自选字段。</string>
+    <string name="widget_multi_config_provider_fields">服务商额度字段</string>
+    <string name="widget_multi_more">另有 %1$d 个 · 调整大小</string>
+    <string name="widget_multi_more_compact">+%1$d</string>
+    <string name="widget_multi_identity">%1$s · %2$s</string>
+    <string name="widget_multi_missing_account">账号不可用</string>
+    <string name="widget_multi_refreshed">更新于 %1$s</string>
+    <string name="widget_multi_percent_remaining">剩余 %1$d%%</string>
+    <string name="widget_multi_count_used">已用 %1$d / %2$d</string>
+    <string name="widget_multi_count_used_without_limit">已用 %1$d</string>
+    <string name="widget_multi_field_value">%1$s：%2$s</string>
+</resources>

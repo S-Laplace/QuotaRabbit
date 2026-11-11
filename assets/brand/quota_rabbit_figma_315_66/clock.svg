@@ -1,0 +1,21 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="378.755" height="350.48" viewBox="0 0 378.755 350.48" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group">
+<path id="Vector" d="M50.96 0C21.84 0 0 22.88 0 56.16L3.12 293.28C3.12 322.4 10.4 344.24 36.4 350.48L336.96 344.24C356.72 338 359.84 312 364 284.96L378.56 89.44C380.64 59.28 366.08 42.64 333.84 36.4L60.32 1.04C57.2 0 54.08 0 50.96 0Z" fill="#FA6A82"/>
+<path id="Vector_2" d="M57.2 14.56C32.24 14.56 13.52 36.4 14.56 58.24L17.68 287.04C17.68 309.92 24.96 323.44 39.52 332.8L326.56 331.76C342.16 327.6 345.28 302.64 349.44 280.8L365.04 90.48C366.08 68.64 353.6 58.24 328.64 54.08L62.4 15.6L57.2 14.56Z" fill="#F7EDE5" stroke="#E7AFB0" stroke-width="3.12"/>
+<path id="Vector_3" opacity="0.9" d="M49.92 28.08C31.2 29.12 22.88 47.84 24.96 68.64L27.04 287.04M346.32 83.2C349.44 69.68 336.96 65.52 322.4 63.44M345.28 277.68C341.12 304.72 336.96 316.16 323.44 321.36" stroke="#FFEFF1" stroke-width="3.12"/>
+<g id="Group_2">
+<path id="Vector_4" d="M147.68 34.32L158.08 59.28M150.8 61.36L162.24 35.36M167.44 35.36L169.52 60.32M179.92 37.44L182 61.36M193.44 39.52L195.52 61.36" stroke="#6E4E59" stroke-width="6.24" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_5" d="M62.4 48.88L75.92 65.52M68.64 44.72L82.16 64.48" stroke="#6E4E59" stroke-width="4.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_6" d="M307.84 76.96L306.8 98.8M317.2 78L316.16 99.84" stroke="#6E4E59" stroke-width="4.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_7" d="M28.08 175.76H45.76M30.16 184.08L46.8 183.04M32.24 190.32H45.76" stroke="#6E4E59" stroke-width="4.16" stroke-linecap="round" stroke-linejoin="round"/>
+<path id="Vector_8" d="M339.04 159.12L353.6 162.24M336.96 169.52L350.48 171.6M334.88 179.92L350.48 183.04" stroke="#6E4E59" stroke-width="4.16" stroke-linecap="round" stroke-linejoin="round"/>
+</g>
+<path id="Vector_9" d="M192.4 175.76C175.76 151.84 163.28 110.24 161.2 74.88" stroke="#765764" stroke-width="6.24" stroke-linecap="round"/>
+<path id="Vector_10" d="M192.4 175.76C240.24 168.48 289.12 147.68 328.64 122.72" stroke="#765764" stroke-width="5.72" stroke-linecap="round"/>
+<g id="Vector_11">
+<path d="M195.52 175.76L203.84 191.36Z" fill="black"/>
+<path d="M195.52 175.76L203.84 191.36" stroke="#D79B9D" stroke-width="3.12" stroke-linecap="round"/>
+</g>
+<path id="Vector_12" d="M192.4 184.08C196.995 184.08 200.72 180.355 200.72 175.76C200.72 171.165 196.995 167.44 192.4 167.44C187.805 167.44 184.08 171.165 184.08 175.76C184.08 180.355 187.805 184.08 192.4 184.08Z" fill="#D58C99" stroke="#765764" stroke-width="3.12"/>
+</g>
+</svg>

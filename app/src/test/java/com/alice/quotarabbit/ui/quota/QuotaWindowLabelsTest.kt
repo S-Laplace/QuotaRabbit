@@ -1,0 +1,134 @@
+package com.alice.quotarabbit.ui.quota
+
+import com.alice.quotarabbit.R
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class QuotaWindowLabelsTest {
+
+    private val fiveHourSeconds = 5 * 60 * 60
+    private val daySeconds = 24 * 60 * 60
+    private val weekSeconds = 7 * daySeconds
+
+    @Test
+    fun `codex primary window reporting a weekly duration is labelled weekly`() {
+        // Codex temporarily dropped the 5-hour window, so `primary_window` now carries the weekly
+        // quota while the mapper still assigns it the positional id `five_hour`.
+        assertEquals(
+            R.string.account_quota_weekly_label,
+            quotaWindowLabelRes(windowId = "five_hour", limitWindowSeconds = weekSeconds),
+        )
+    }
+
+    @Test
+    fun `codex slots are labelled five hour and weekly again once both durations are reported`() {
+        assertEquals(
+            R.string.account_quota_five_hour_label,
+            quotaWindowLabelRes(windowId = "five_hour", limitWindowSeconds = fiveHourSeconds),
+        )
+        assertEquals(
+            R.string.account_quota_weekly_label,
+            quotaWindowLabelRes(windowId = "weekly", limitWindowSeconds = weekSeconds),
+        )
+    }
+
+    @Test
+    fun `codex secondary window reporting a five hour duration is labelled five hour`() {
+        assertEquals(
+            R.string.account_quota_five_hour_label,
+            quotaWindowLabelRes(windowId = "weekly", limitWindowSeconds = fiveHourSeconds),
+        )
+    }
+
+    @Test
+    fun `codex window reporting a daily duration is labelled daily`() {
+        assertEquals(
+            R.string.window_label_daily,
+            quotaWindowLabelRes(windowId = "five_hour", limitWindowSeconds = daySeconds),
+        )
+    }
+
+    @Test
+    fun `codex window reporting an unnameable duration falls back to the generic label`() {
+        assertEquals(
+            R.string.window_label_generic,
+            quotaWindowLabelRes(windowId = "five_hour", limitWindowSeconds = 3 * 60 * 60),
+        )
+    }
+
+    @Test
+    fun `codex window without a reported duration falls back to the generic label`() {
+        // A missing secondary window carries no duration. Keeping its positional "7-day" label made
+        // Home show two "7-day quota" cards once the primary slot started reporting a weekly duration
+        // (#4 follow-up), so an unnamed positional window must not claim a length either.
+        assertEquals(
+            R.string.window_label_generic,
+            quotaWindowLabelRes(windowId = "five_hour", limitWindowSeconds = null),
+        )
+        assertEquals(
+            R.string.window_label_generic,
+            quotaWindowLabelRes(windowId = "weekly", limitWindowSeconds = null),
+        )
+    }
+
+    @Test
+    fun `provider named windows keep their own label even when the duration collides`() {
+        // Claude names its windows itself: the Opus and Sonnet windows both last seven days but must
+        // stay distinguishable, so a duration must never override a provider-named id.
+        assertEquals(
+            R.string.window_label_7d_opus,
+            quotaWindowLabelRes(windowId = "claude_7d_opus_window", limitWindowSeconds = weekSeconds),
+        )
+        assertEquals(
+            R.string.window_label_7d_sonnet,
+            quotaWindowLabelRes(windowId = "claude_7d_sonnet_window", limitWindowSeconds = weekSeconds),
+        )
+        assertEquals(
+            R.string.account_quota_five_hour_label,
+            quotaWindowLabelRes(windowId = "claude_5h_window", limitWindowSeconds = weekSeconds),
+        )
+    }
+
+    @Test
+    fun `kimi cycle never trusts the historical weekly id or cached hardcoded duration`() {
+        listOf(null, weekSeconds, 30 * daySeconds).forEach { seconds ->
+            assertEquals(R.string.window_label_cycle, quotaWindowLabelRes("kimi_weekly_window", seconds))
+        }
+    }
+
+    @Test
+    fun `kimi rate label follows API duration and is neutral when unknown`() {
+        assertEquals(R.string.account_quota_five_hour_label, quotaWindowLabelRes("kimi_rate_window", fiveHourSeconds))
+        assertEquals(R.string.window_label_daily, quotaWindowLabelRes("kimi_rate_window", daySeconds))
+        listOf(null, 3 * 60 * 60).forEach { seconds ->
+            assertEquals(R.string.window_label_cycle, quotaWindowLabelRes("kimi_rate_window", seconds))
+        }
+    }
+
+    @Test
+    fun `kimi code named windows keep fixed labels regardless of duration`() {
+        assertEquals(R.string.account_quota_five_hour_label, quotaWindowLabelRes("kimi_code_5h", fiveHourSeconds))
+        assertEquals(R.string.account_quota_weekly_label, quotaWindowLabelRes("kimi_code_7d", weekSeconds))
+        assertEquals(R.string.window_label_monthly, quotaWindowLabelRes("kimi_code_month_total", null))
+        // The cycle fallback window must never claim a period.
+        assertEquals(R.string.window_label_cycle, quotaWindowLabelRes("kimi_code_usage", null))
+        assertEquals(R.string.window_label_cycle, quotaWindowLabelRes("kimi_code_usage", weekSeconds))
+    }
+
+    @Test
+    fun `kimi code rate label follows API duration and is neutral when unknown`() {
+        assertEquals(R.string.account_quota_five_hour_label, quotaWindowLabelRes("kimi_code_rate", fiveHourSeconds))
+        assertEquals(R.string.window_label_daily, quotaWindowLabelRes("kimi_code_rate", daySeconds))
+        listOf(null, 3 * 60 * 60).forEach { seconds ->
+            assertEquals(R.string.window_label_cycle, quotaWindowLabelRes("kimi_code_rate", seconds))
+        }
+    }
+
+    @Test
+    fun `unknown window id still falls back to the generic label`() {
+        assertEquals(
+            R.string.window_label_generic,
+            quotaWindowLabelRes(windowId = "brand_new_window", limitWindowSeconds = null),
+        )
+    }
+}

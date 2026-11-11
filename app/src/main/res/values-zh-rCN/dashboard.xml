@@ -1,0 +1,19 @@
+<resources>
+    <string name="dashboard_subtitle">全部账号 · 优先展示缓存额度</string>
+    <string name="dashboard_cached">缓存额度</string>
+    <string name="dashboard_refresh_all">全部刷新</string>
+    <string name="dashboard_manage_accounts">管理账号</string>
+    <string name="dashboard_disconnected">未连接</string>
+    <string name="dashboard_banked_resets_unavailable">储备重置次数：暂不可用</string>
+    <string name="dashboard_remaining">剩余</string>
+    <string name="dashboard_remaining_format">剩余 %1$d%%</string>
+    <string name="dashboard_used_count_format">已用 %1$s / %2$s</string>
+    <string name="dashboard_remaining_count_format">剩余 %1$d</string>
+    <string name="dashboard_balance_remaining">剩余余额</string>
+    <string name="dashboard_reset_minutes">%1$d 分钟后重置</string>
+    <string name="dashboard_reset_hours">%1$d 小时 %2$d 分钟后重置</string>
+    <string name="dashboard_reset_days">%1$d 天 %2$d 小时后重置</string>
+    <string name="dashboard_reset_passed">重置时间已过 · 刷新确认</string>
+    <string name="dashboard_trend_account">%1$s · 最近 24 小时</string>
+    <string name="dashboard_unknown">—</string>
+</resources>

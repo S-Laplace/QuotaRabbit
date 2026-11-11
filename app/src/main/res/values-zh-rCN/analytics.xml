@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="account_analytics_unsupported">详细用量分析目前仅支持 Codex 账号。</string>
+    <string name="analytics_today_pending">服务商尚未提供今日详细用量统计。请刷新后重试。</string>
+    <string name="analytics_feature_share_on_date">功能使用占比 · %1$s</string>
+    <string name="analytics_model_share_on_date">模型积分占比 · %1$s</string>
+    <string name="analytics_work_agent_activity">Work · Codex · 其他代理活动</string>
+    <string name="analytics_by_feature">按功能</string>
+    <string name="analytics_by_model">按模型</string>
+    <string name="analytics_by_turn_start">按轮次开始</string>
+    <string name="analytics_messages">消息</string>
+</resources>
