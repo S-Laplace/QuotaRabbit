@@ -1,92 +1,68 @@
 # QuotaRabbit
 
-<p align="center"><img src="./docs/assets/readme/hero.png" alt="QuotaRabbit app icon with previews of the Home and Accounts screens" width="100%"></p>
+<p align="center"><img src="./docs/assets/readme/hero.png" alt="QuotaRabbit Home and Accounts screen preview" width="100%"></p>
 
 <p align="center"><a href="./README.md">한국어</a> · <a href="./README.en.md">English</a> · <a href="./README.zh-CN.md">简体中文</a></p>
 
-<p align="center"><a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-222222" alt="MIT License"></a> <img src="https://img.shields.io/badge/Android-12%2B-3DDC84" alt="Android 12 or newer"></p>
+<p align="center"><a href="./LICENSE"><img src="https://img.shields.io/badge/License-MIT-222222" alt="MIT License"></a> <img src="https://img.shields.io/badge/Android-12%2B-3DDC84" alt="Android 12 or later"></p>
 
-QuotaRabbit is **an Android app for checking your AI service quotas and balances**. Add accounts from Codex and 10 other services to see remaining quotas, reset countdowns and refresh status in one place. You can also check important numbers in a home-screen widget or notification.
+QuotaRabbit is an Android app for checking quotas and balances across 11 AI services, including Codex. Connect your accounts to see how much quota remains and when it resets. You can also keep an eye on usage from a home-screen widget or notification.
 
-[APK releases](https://github.com/S-Laplace/QuotaRabbit/releases) · [Source code](https://github.com/S-Laplace/QuotaRabbit)
+**[Download APK (v1.0.0)](https://github.com/S-Laplace/QuotaRabbit/releases/download/v1.0.0/quotarabbit-1.0.0.apk)** · [All releases](https://github.com/S-Laplace/QuotaRabbit/releases)
 
 ## Screenshots
 
-<p align="center"><img src="./docs/assets/readme/dashboard.png" alt="QuotaRabbit Home and Accounts previews showing available quota, reset countdowns and account management" width="100%"></p>
+<p align="center"><img src="./docs/assets/readme/dashboard.png" alt="Home and Accounts screens showing remaining quotas and account status" width="100%"></p>
 
-*The accounts and figures in the images are examples, not live usage data.*
+<p align="center"><img src="./docs/assets/readme/analytics.png" alt="Codex usage charts broken down by feature and model" width="100%"></p>
+
+*The accounts and figures shown in these images are examples.*
 
 ## Features
 
 ### Accounts and quotas
 
-The Home tab groups saved accounts by service. Expand an account card to see recent usage and activity. Depending on the provider, you may see a quota percentage, time until reset or account balance.
+View accounts grouped by service, and expand a card to see recent activity. You can add more than one account per service and choose which one to mark as current. The available details—remaining quota, reset time or balance—depend on the service.
 
-In the Accounts tab, you can add multiple accounts for the same service and manage names, accent colors and notification settings. You can also choose a current account for each provider. If a refresh fails, the app keeps the last successful reading and shows its refresh status.
+### Usage analytics
 
-### Codex usage analytics
-
-Codex accounts can display model and feature usage over 7- or 30-day periods, along with token-related figures. Missing dates and values aren't filled in with estimates. This detailed view isn't available for every service.
-
-<p align="center"><img src="./docs/assets/readme/analytics.png" alt="Example Codex analytics with feature usage and a model usage bar chart" width="100%"></p>
-
-*The analytics image also uses sample data.*
+Codex accounts have 7-day and 30-day views of model and feature usage. These detailed charts are currently limited to Codex. Missing data isn't replaced with estimates.
 
 ### Widgets and notifications
 
-The resizable home-screen widget lets you choose which accounts and quota fields to display. Persistent status notifications and quota alerts are available in Settings.
-
-WorkManager schedules background refreshes roughly every 15 minutes by default. Android battery-saving restrictions may delay them. You can refresh manually whenever you need a newer reading.
+Choose the accounts and quota fields shown in a resizable home-screen widget. You can also receive low-quota alerts or keep the current status in your notifications.
 
 ## Supported services
 
-| Service | Sign-in method |
+| Sign-in method | Services |
 | --- | --- |
-| Codex | Device-code authorization in an external browser |
-| Claude | OAuth |
-| Antigravity | Google OAuth |
-| DeepSeek | API key |
-| z.ai Coding Plan | API key |
-| z.ai API | API key |
-| MiniMax | API key |
-| Cursor | In-app sign-in session |
-| Kimi | In-app sign-in session |
-| Kimi Code API | API key |
-| Grok | Device-code authorization in an external browser |
+| Device code | Codex, Grok |
+| OAuth | Claude, Antigravity (Google) |
+| API key | DeepSeek, z.ai Coding Plan, z.ai API, MiniMax, Kimi Code API |
+| In-app sign-in | Cursor, Kimi |
 
-Login methods and available usage fields differ between services. Expired sessions or API changes can prevent some information from appearing. QuotaRabbit does not calculate estimated token usage or costs on its own.
+Sign-in methods and available usage data vary by service. If a session expires, you may need to connect the account again.
 
 ## Installation
 
-Requires **Android 12 or later**.
+Requires Android 12 or later.
 
-1. Download a signed APK from [GitHub Releases](https://github.com/S-Laplace/QuotaRabbit/releases).
-2. Open the APK on your phone. If prompted, allow the browser or file manager to install apps from this source.
-3. Launch QuotaRabbit and connect an account.
+1. Download an APK from [GitHub Releases](https://github.com/S-Laplace/QuotaRabbit/releases).
+2. Open the APK on your phone. If Android asks, allow your browser or file manager to install apps from this source.
+3. Launch QuotaRabbit and connect your accounts.
 
-If the recreated repository does not have an APK release yet, you can build from source below. Updating an existing installation requires an APK signed with the same key as the previous version.
+To update an existing installation, the APK must be signed with the same key as the installed version.
 
-## Build from source
+## Things to know
 
-You'll need Android Studio's JDK environment, Android SDK 37 and the Gradle Wrapper included in this repository. On Windows, run these commands from the directory containing `settings.gradle.kts`:
+QuotaRabbit displays usage data supplied by each service. It schedules refreshes roughly every 15 minutes, though Android battery restrictions may delay them. You can refresh manually in the app. Changes to a provider's login flow or API may also affect what the app can show.
 
-```powershell
-.\gradlew.bat :app:assembleDebug
-.\gradlew.bat :app:testDebugUnitTest
-```
+## Privacy
 
-The debug APK is written to `app/build/outputs/apk/debug/`. Use `.\gradlew.bat :app:assembleRelease` for a release build, which must be signed before distribution. Signing can be configured using `RELEASE_KEYSTORE_PATH`, `RELEASE_STORE_PASSWORD`, `RELEASE_KEY_ALIAS` and `RELEASE_KEY_PASSWORD`. Never commit keystores or passwords.
-
-The Android application ID is `com.alice.quotarabbit`.
-
-## Data and privacy
-
-Account sessions are encrypted on the device using Android Keystore-backed AES-GCM. Usage history and settings also stay on the device. The app does not include cloud sync, advertising SDKs or remote analytics collection.
-
-Authentication and quota requests require a network connection to the relevant provider. API changes, session status and Android background restrictions can affect the readings. Some endpoints used for detailed Codex analytics are not part of a stable public API and may change.
+Account connections and usage history are stored on your device, with connection data encrypted at rest. The app has no cloud sync, advertising SDK or remote usage analytics. It connects to each provider when you sign in or request usage data.
 
 ## License and credits
 
-QuotaRabbit builds on [CodexMeter](https://github.com/KyoMio/CodexMeter), with changes and additions to its interface and features. The original copyright notice and MIT license remain in [LICENSE](LICENSE). Some provider response handling draws on [CodexBar](https://github.com/steipete/CodexBar).
+QuotaRabbit is based on [CodexMeter](https://github.com/KyoMio/CodexMeter), with changes to its interface and features. The original copyright notice and MIT License are retained in [LICENSE](LICENSE). Some provider response handling draws on [CodexBar](https://github.com/steipete/CodexBar).
 
-QuotaRabbit is not an official app of the supported AI services.
+QuotaRabbit is not an official app of the supported services.
